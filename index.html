@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="hr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lajk nije dokaz</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: #101629;
+    color: white;
+    font-family: Arial, sans-serif;
+    text-align: center;
+  }
+  h1 { margin: 20px 8px 6px; color: #62e6c5; }
+  p { color: #cbd5e1; }
+  canvas {
+    display: block;
+    width: min(96%, 960px);
+    height: auto;
+    margin: 18px auto;
+    border: 2px solid #34415c;
+    border-radius: 14px;
+    background: #17213a;
+  }
+  button {
+    padding: 12px 20px;
+    margin: 5px;
+    border: 0;
+    border-radius: 9px;
+    background: #62e6c5;
+    color: #102033;
+    font-weight: bold;
+    cursor: pointer;
+  }
+  button:hover { background: #9af5df; }
+  #status { color: #62e6c5; }
+</style>
+</head>
+<body>
+
+<h1>LAJK NIJE DOKAZ</h1>
+<p>Finfluenceri: Kome vjeruješ kada je tvoj novac u pitanju?</p>
+
+<canvas id="film" width="960" height="540"></canvas>
+
+<button onclick="start()">▶ Pokreni animaciju</button>
+<button onclick="togglePause()">⏯ Pauza / Nastavi</button>
+<button onclick="restart()">↻ Ispočetka</button>
+<button onclick="fullScreen()">⛶ Cijeli zaslon</button>
+<p id="status">Spremno za projekciju</p>
+
+<script>
+const canvas = document.getElementById("film");
+const ctx = canvas.getContext("2d");
+const statusText = document.getElementById("status");
+
+const W = canvas.width;
+const H = canvas.height;
+const DURATION = 80;
+
+let started = false;
+let paused = false;
+let startTime = 0;
+let elapsed = 0;
+let lastTime = 0;
+let raf = null;
+
+const scenes = [
+  {
+    name: "1. Čarobno obećanje",
+    title: "ZARADI 300% ZA TJEDAN DANA!",
+    sub: "Ovaj coin sigurno raste! Uloži odmah!",
+    caption: "Na društvenim mrežama financijska obećanja zvuče primamljivo.",
+    color: "#ff6584"
+  },
+  {
+    name: "2. Pritisak gomile",
+    title: "SVI VEĆ ZARAĐUJU!",
+    sub: "Ne propusti priliku! Još samo danas!",
+    caption: "Strah od propuštanja prilike zove se FOMO.",
+    color: "#ffbf69"
+  },
+  {
+    name: "3. Detektiv za financije",
+    title: "TKO STOJI IZA OBJAVE?",
+    sub: "Oglas? Dokaz? Rizik? Pouzdan izvor?",
+    caption: "Provjeri izvor, sukob interesa i skrivenu promociju.",
+    color: "#62e6c5"
+  },
+  {
+    name: "4. Druga strana ulaganja",
+    title: "GRAF NE IDE SAMO GORE!",
+    sub: "Vrijednost može i pasti.",
+    caption: "Popularnost nije jamstvo zarade. Ulaganje nosi rizik.",
+    color: "#a78bfa"
+  },
+  {
+    name: "5. Tvoj novac, tvoja odluka",
+    title: "STANI. PROVJERI. RAZMISLI.",
+    sub: "Lajk nije dokaz. Obećanje nije jamstvo.",
+    caption: "Odluku donesi na temelju provjerenih informacija.",
+    color: "#62e6c5"
+  }
+];
+
+function roundedRect(x, y, w, h, r, color) {
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.roundRect(x, y, w, h, r);
+  ctx.fill();
+}
+
+function text(str, x, y, size, color, align = "center") {
+  ctx.fillStyle = color;
+  ctx.font = `bold ${size}px Arial`;
+  ctx.textAlign = align;
+  ctx.fillText(str, x, y);
+}
+
+function wrapText(str, x, y, maxWidth, lineHeight) {
+  ctx.font = "20px Arial";
+  ctx.fillStyle = "#e2e8f0";
+  ctx.textAlign = "center";
+
+  const words = str.split(" ");
+  let line = "";
+  let yy = y;
+
+  for (const word of words) {
+    const test = line + word + " ";
+    if (ctx.measureText(test).width > maxWidth && line) {
+      ctx.fillText(line.trim(), x, yy);
+      line = word + " ";
+      yy += lineHeight;
+    } else {
+      line = test;
+    }
+  }
+  ctx.fillText(line.trim(), x, yy);
+}
+
+function drawBackground(color, t) {
+  const g = ctx.createLinearGradient(0, 0, W, H);
+  g.addColorStop(0, "#17213a");
+  g.addColorStop(1, "#263657");
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, W, H);
+
+  // Animirane čestice u pozadini
+  for (let i = 0; i < 24; i++) {
+    const x = (i * 137 + t * (12 + i % 4)) % W;
+    const y = (i * 83 + Math.sin(t + i) * 15 + H) % H;
+    ctx.globalAlpha = 0.15;
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.arc(x, y, 3 + i % 3, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+}
+
+function drawStudent(t, happy = false) {
+  const x = 175;
+  const y = 310 + Math.sin(t * 3) * 4;
+
+  // Tijelo
+  roundedRect(x - 42, y + 28, 84, 105, 22,
+    happy ? "#168c80" : "#5273bd");
+
+  // Glava
+  ctx.fillStyle = "#f0bd91";
+  ctx.beginPath();
+  ctx.arc(x, y, 38, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Kosa
+  ctx.fillStyle = "#382a35";
+  ctx.beginPath();
+  ctx.arc(x, y - 10, 39, Math.PI, Math.PI * 2);
+  ctx.fill();
+  ctx.fillRect(x - 38, y - 13, 12, 22);
+
+  // Oči
+  ctx.fillStyle = "#20283c";
+  ctx.beginPath();
+  ctx.arc(x - 13, y, 3, 0, Math.PI * 2);
+  ctx.arc(x + 13, y, 3, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Izraz lica
+  ctx.strokeStyle = "#784d49";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  if (happy) {
+    ctx.arc(x, y + 5, 13, 0.15, Math.PI - 0.15);
+  } else {
+    ctx.arc(x, y + 17, 11, Math.PI + 0.2, -0.2);
+  }
+  ctx.stroke();
+
+  text(happy ? "PROVJERAVAM!" : "Učenik", x, y + 158, 17, "#ffffff");
+}
+
+function drawPhone(t, sceneIndex) {
+  const x = 555, y = 110, w = 245, h = 320;
+  const pulse = 1 + Math.sin(t * 4) * 0.012;
+
+  ctx.save();
+  ctx.translate(x + w / 2, y + h / 2);
+  ctx.scale(pulse, pulse);
+  ctx.translate(-(x + w / 2), -(y + h / 2));
+
+  roundedRect(x, y, w, h, 25, "#080d19");
+  roundedRect(x + 8, y + 8, w - 16, h - 16, 19, "#f8fafc");
+  roundedRect(x + 80, y + 12, 85, 9, 5, "#080d19");
+
+  // Zaglavlje društvene mreže
+  ctx.fillStyle = "#e7edf6";
+  ctx.fillRect(x + 12, y + 34, w - 24, 38);
+  ctx.fillStyle = "#7957dc";
+  ctx.beginPath();
+  ctx.arc(x + 37, y + 53, 12, 0, Math.PI * 2);
+  ctx.fill();
+  text("FINfluencer", x + 58, y + 58, 14, "#20283c", "left");
+
+  // Lik finfluencera
+  roundedRect(x + 18, y + 83, w - 36, 98, 12,
+    sceneIndex === 4 ? "#c8f7e9" : "#29274e");
+
+  ctx.fillStyle = "#f1bd93";
+  ctx.beginPath();
+  ctx.arc(x + 112, y + 111, 20, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = "#202033";
+  ctx.beginPath();
+  ctx.arc(x + 112, y + 104, 21, Math.PI, Math.PI * 2);
+  ctx.fill();
+
+  roundedRect(x + 78, y + 131, 68, 38, 10,
+    sceneIndex === 4 ? "#168c80" : "#ff6584");
+
+  text("★", x + 112, y + 157, 23, "#ffffff");
+
+  // Poruka
+  const message = scenes[sceneIndex].sub;
+  ctx.fillStyle = "#263047";
+  ctx.font = "bold 14px Arial";
+  ctx.textAlign = "center";
+
+  const words = message.split(" ");
+  let line = "", yy = y + 204;
+  for (const word of words) {
+    const test = line + word + " ";
+    if (ctx.measureText(test).width > 205) {
+      ctx.fillText(line.trim(), x + w / 2, yy);
+      line = word + " ";
+      yy += 18;
+    } else {
+      line = test;
+    }
+  }
+  ctx.fillText(line.trim(), x + w / 2, yy);
+
+  // Lajkovi
+  text("♥", x + 36, y + 265, 23, "#ff5277", "left");
+  text(
+    sceneIndex < 2 ? `${Math.floor(1200 + t * 950)}` : "1,2 mil.",
+    x + 64, y + 263, 14, "#263047", "left"
+  );
+  text("💬", x + 143, y + 263, 17, "#263047");
+
+  ctx.restore();
+}
+
+function drawChart(t, sceneIndex) {
+  const x = 340, y = 320, w = 250, h = 95;
+  roundedRect(x, y, w, h, 12, "#10192b");
+
+  ctx.strokeStyle = "#35445d";
+  ctx.lineWidth = 1;
+  for (let i = 1; i < 4; i++) {
+    ctx.beginPath();
+    ctx.moveTo(x + 15, y + i * 20);
+    ctx.lineTo(x + w - 12, y + i * 20);
+    ctx.stroke();
+  }
+
+  const points = sceneIndex === 3
+    ? [[0, 65], [30, 48], [60, 54], [90, 20],
+       [120, 30], [150, 8], [180, 70], [220, 78]]
+    : [[0, 78], [30, 65], [60, 72], [90, 44],
+       [120, 50], [150, 22], [180, 35], [220, 12]];
+
+  ctx.beginPath();
+  points.forEach((p, i) => {
+    const px = x + 15 + p[0];
+    const py = y + 5 + p[1];
+    if (i === 0) ctx.moveTo(px, py);
+    else ctx.lineTo(px, py);
+  });
+  ctx.strokeStyle = sceneIndex === 3 ? "#ff6584" : "#62e6c5";
+  ctx.lineWidth = 4;
+  ctx.stroke();
+
+  text(
+    sceneIndex === 3 ? "RIZIK POSTOJI" : "NE PREDVIĐAJ NASLIJEPO",
+    x + w / 2, y + h + 22, 13, "#ffffff"
+  );
+}
+
+function drawScene(t) {
+  const sceneIndex = Math.min(4, Math.floor(t / 16));
+  const local = t % 16;
+  const s = scenes[sceneIndex];
+
+  drawBackground(s.color, t);
+
+  text("DIGITALNI SVIJET • FINANCIJSKA PISMENOST",
+    W / 2, 38, 15, "#9fb2d4");
+
+  text(s.name, W / 2, 78, 27, s.color);
+
+  drawStudent(t, sceneIndex === 4);
+  drawPhone(t, sceneIndex);
+
+  if (sceneIndex >= 2) drawChart(t, sceneIndex);
+
+  // Glavna poruka
+  roundedRect(42, 450, 876, 70, 14, "#0d1527");
+  text(s.title, W / 2, 480, 25, s.color);
+  text(s.caption, W / 2, 505, 16, "#e2e8f0");
+
+  // Upozorenja i kontrolna pitanja
+  if (sceneIndex === 0 && local > 4) {
+    roundedRect(330, 205, 200, 45, 10, "#ff6584");
+    text("100% SIGURNO?!", 430, 234, 19, "#ffffff");
+  }
+
+  if (sceneIndex === 1) {
+    text("FOMO = STRAH OD PROPUŠTANJA",
+      W / 2, 285, 19, "#ffbf69");
+  }
+
+  if (sceneIndex === 2) {
+    text("✓ Tko je autor?", 440, 190, 17, "#62e6c5", "left");
+    text("✓ Je li ovo oglas?", 440, 220, 17, "#62e6c5", "left");
+    text("✓ Gdje su rizici?", 440, 250, 17, "#62e6c5", "left");
+  }
+
+  if (sceneIndex === 4) {
+    roundedRect(300, 150, 230, 55, 12, "#168c80");
+    text("STANI • PROVJERI", 415, 183, 20, "#ffffff");
+  }
+
+  // Vremenska crta
+  roundedRect(30, 532, 900, 4, 2, "#35445d");
+  roundedRect(30, 532, 900 * (t / DURATION), 4, 2, "#62e6c5");
+}
+
+function drawEnd() {
+  drawBackground("#62e6c5", DURATION);
+  text("LAJK NIJE DOKAZ", W / 2, 125, 48, "#62e6c5");
+  text("Tvoj novac. Tvoja odluka.", W / 2, 205, 31, "#ffffff");
+
+  const tips = [
+    "1. Provjeri izvor informacije.",
+    "2. Prepoznaj promociju i sukob interesa.",
+    "3. Razumij rizike prije ulaganja.",
+    "4. Ne donosi odluke pod pritiskom."
+  ];
+
+  tips.forEach((tip, i) => {
+    roundedRect(180, 255 + i * 48, 600, 37, 9, "#202e49");
+    text(tip, W / 2, 280 + i * 48, 19, "#e2e8f0");
+  });
+
+  text("INFORMIRAJ SE. RAZMISLI. ODLUČI ODGOVORNO.",
+    W / 2, 490, 18, "#62e6c5");
+}
+
+function render(now) {
+  if (!started || paused) return;
+
+  if (!lastTime) lastTime = now;
+  elapsed += Math.min((now - lastTime) / 1000, 0.05);
+  lastTime = now;
+
+  const t = elapsed;
+
+  if (t < DURATION) {
+    drawScene(t);
+    const sceneIndex = Math.min(4, Math.floor(t / 16));
+    statusText.textContent =
+      scenes[sceneIndex].name + " — " +
+      Math.floor(t) + " / " + DURATION + " s";
+    raf = requestAnimationFrame(render);
+  } else {
+    drawEnd();
+    statusText.textContent =
+      "Animacija završena — klikni Pokreni za ponovni pregled.";
+    started = false;
+    raf = null;
+  }
+}
+
+function start() {
+  if (started && !paused) return;
+
+  if (elapsed >= DURATION) elapsed = 0;
+
+  started = true;
+  paused = false;
+  lastTime = 0;
+  statusText.textContent = "Animacija se reproducira...";
+  raf = requestAnimationFrame(render);
+}
+
+function togglePause() {
+  if (!started) {
+    start();
+    return;
+  }
+
+  paused = !paused;
+  lastTime = 0;
+
+  if (paused) {
+    cancelAnimationFrame(raf);
+    statusText.textContent = "Animacija je pauzirana.";
+  } else {
+    statusText.textContent = "Animacija se nastavlja...";
+    raf = requestAnimationFrame(render);
+  }
+}
+
+function restart() {
+  cancelAnimationFrame(raf);
+  started = false;
+  paused = false;
+  elapsed = 0;
+  lastTime = 0;
+  drawScene(0);
+  statusText.textContent = "Animacija je spremna.";
+}
+
+function fullScreen() {
+  if (canvas.requestFullscreen) canvas.requestFullscreen();
+}
+
+drawScene(0);
+</script>
+</body>
+</html>
